@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetDL | Infinite High-Speed Direct Downloader</title>
+    <!-- Modern Typography: Google Fonts Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons for modern styling -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Vanilla CSS File -->
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Premium Backdrop Lights for Glassmorphism -->
+    <div class="backdrop-glow">
+        <div class="glow-sphere sphere-red"></div>
+        <div class="glow-sphere sphere-crimson"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Mobile Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- Sidebar for Quick Navigation & Status -->
+        <aside class="app-sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon"><i class="fa-solid fa-film"></i></span>
+                    <span class="logo-title">NetDL</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-menu">
+                <div class="menu-label">FEATURES</div>
+                <button class="menu-item active" id="chat-feature-btn">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>Chat Assistant</span>
+                </button>
+                <button class="menu-item" id="catalog-feature-btn">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <span>Catalog Explorer</span>
+                </button>
+            </div>
+            
+            <div class="sidebar-menu recent-updates-section">
+                <div class="menu-label">LATEST UPLOADS</div>
+                <div class="recent-updates-list" id="recent-updates-list">
+                    <div class="recent-loading">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Loading...
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="server-status">
+                    <span class="status-dot online"></span>
+                    <span class="status-text">Server: Online</span>
+                </div>
+                <div class="credits">Developed by Antigravity</div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-wrapper">
+            <!-- Glassmorphic Header -->
+            <header class="chat-header">
+                <button class="sidebar-toggle-btn" id="mobile-sidebar-toggle" title="Toggle Sidebar">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="bot-profile">
+                    <div class="bot-avatar">
+                        <i class="fa-solid fa-robot"></i>
+                        <span class="active-badge"></span>
+                    </div>
+                    <div class="bot-meta">
+                        <h2>NetDL Assistant</h2>
+                        <p>Ask for any movie or series. Instant unthrottled downloads.</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" id="clear-chat-btn" title="Clear Chat">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Chat Message Streams -->
+            <div class="messages-container" id="messages-container">
+                <!-- Welcome greeting is added here by app.js -->
+            </div>
+
+            <!-- Suggestion Quick Chips -->
+            <div class="quick-chips-wrapper" id="quick-chips">
+                <button class="chip" onclick="sendSuggestion('Invasion')">Invasion</button>
+                <button class="chip" onclick="sendSuggestion('The Boys')">The Boys</button>
+                <button class="chip" onclick="sendSuggestion('Euphoria')">Euphoria</button>
+                <button class="chip" onclick="sendSuggestion('Mortal Kombat')">Mortal Kombat</button>
+            </div>
+
+            <!-- Input Bar -->
+            <footer class="input-area">
+                <div class="input-container">
+                    <input type="text" id="user-input" placeholder="Ask for a movie or TV show, or paste a URL directly..." autocomplete="off">
+                    <button id="send-btn" class="send-btn" disabled>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </footer>
+        </main>
+
+        <!-- Main Catalog Area -->
+        <main class="catalog-wrapper" id="catalog-wrapper" style="display: none;">
+            <!-- Glassmorphic Header -->
+            <header class="catalog-header">
+                <button class="sidebar-toggle-btn" id="mobile-catalog-sidebar-toggle" title="Toggle Sidebar">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="bot-profile">
+                    <div class="bot-avatar" style="background: rgba(229, 9, 20, 0.1);">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </div>
+                    <div class="bot-meta">
+                        <h2>Catalog Explorer</h2>
+                        <p>Browse and download high-speed movies and web series</p>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Search Area -->
+            <div class="catalog-search-area">
+                <div class="catalog-search-container">
+                    <input type="text" id="catalog-search-input" placeholder="Search catalog for movies or series..." autocomplete="off">
+                    <button id="catalog-search-btn" class="catalog-search-btn">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scrollable Content Grid -->
+            <div class="catalog-content">
+                <div class="catalog-grid" id="catalog-grid">
+                    <div class="catalog-loading" style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">
+                        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; margin-bottom: 10px; display: block; color: var(--accent-red);"></i>
+                        Loading catalog content...
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Premium Download Options Modal -->
+    <div class="download-modal-overlay" id="download-modal">
+        <div class="download-modal-container">
+            <button class="close-modal-btn" id="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-header-info">
+                <h3 id="modal-movie-title">Movie Title</h3>
+                <p id="modal-movie-desc">Select quality option to retrieve direct downloads:</p>
+            </div>
+            <div class="modal-body-content" id="modal-body-content">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Downloader Trigger Element -->
+    <a id="browser-downloader-trigger" style="display: none;" download></a>
+
+    <!-- App JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
