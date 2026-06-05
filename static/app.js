@@ -78,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSidebarOnMobile();
         handleUserSearch(term);
     };
+    // Expose globally so pagination buttons inside innerHTML can call it
+    window.handleUserSearch = (query, page) => handleUserSearch(query, page);
 
     // Orchestrates user text queries
     async function handleUserSearch(query, page = 1) {
@@ -159,25 +161,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Pagination row — Next Page button
-        if (hasMore && query) {
+        // Show Next Page if hasMore OR if it's page 1 and results exist (optimistic)
+        const showNextPage = hasMore || (page === 1 && movies.length >= 5);
+        if (showNextPage && query) {
             const paginationBar = document.createElement('div');
             paginationBar.className = 'search-pagination-bar';
             paginationBar.innerHTML = `
-                <span class="pagination-info">Page ${page} · ${movies.length} results</span>
-                <button class="pagination-next-btn" id="next-page-btn-${page}">
+                <span class="pagination-info">Page ${page} &middot; ${movies.length} results</span>
+                <button class="pagination-next-btn" id="chat-next-page-btn-${page}">
                     <i class="fa-solid fa-angles-right"></i> Next Page
                 </button>
             `;
-            paginationBar.querySelector('.pagination-next-btn').addEventListener('click', () => {
-                paginationBar.querySelector('.pagination-next-btn').disabled = true;
-                paginationBar.querySelector('.pagination-next-btn').innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Loading...`;
-                handleUserSearch(query, page + 1);
+            const nextBtn = paginationBar.querySelector(`#chat-next-page-btn-${page}`);
+            nextBtn.addEventListener('click', () => {
+                nextBtn.disabled = true;
+                nextBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Loading...`;
+                window.handleUserSearch(query, page + 1);
             });
             grid.appendChild(paginationBar);
-        } else if (query) {
+        } else if (query && page > 1) {
             const endBar = document.createElement('div');
             endBar.className = 'search-pagination-bar';
-            endBar.innerHTML = `<span class="pagination-info"><i class="fa-solid fa-check-circle"></i> Page ${page} · All results shown</span>`;
+            endBar.innerHTML = `<span class="pagination-info"><i class="fa-solid fa-check-circle"></i> All results loaded</span>`;
             grid.appendChild(endBar);
         }
 
@@ -749,15 +754,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bar = document.createElement('div');
                 bar.id = 'catalog-pagination-bar';
                 bar.className = 'catalog-pagination-bar';
-                if (data.has_more) {
+                const showNext = data.has_more || (page === 1 && data.results.length >= 5);
+                if (showNext) {
                     bar.innerHTML = `
                         <span class="pagination-info">Page ${page} &middot; ${data.results.length} results</span>
-                        <button class="pagination-next-btn" onclick="this.disabled=true;this.innerHTML='<i class=\'fa-solid fa-spinner fa-spin\'></i> Loading...';handleCatalogSearchGlobal('${query.replace(/'/g, "\\'")}',${ page + 1})">
+                        <button class="catalog-next-btn pagination-next-btn">
                             <i class="fa-solid fa-angles-right"></i> Next Page
                         </button>
                     `;
+                    // Use addEventListener — no fragile inline onclick strings
+                    const catNextBtn = bar.querySelector('.catalog-next-btn');
+                    catNextBtn.addEventListener('click', () => {
+                        catNextBtn.disabled = true;
+                        catNextBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading...';
+                        handleCatalogSearch(query, page + 1);
+                    });
                 } else {
-                    bar.innerHTML = `<span class="pagination-info"><i class="fa-solid fa-check-circle"></i> All results shown (${page} page${page>1?'s':''})</span>`;
+                    bar.innerHTML = `<span class="pagination-info"><i class="fa-solid fa-check-circle"></i> All results shown</span>`;
                 }
                 els.catalogGrid.appendChild(bar);
             } else if (page === 1) {
@@ -781,8 +794,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-    // Expose globally so inline onclick can call it
-    window.handleCatalogSearchGlobal = handleCatalogSearch;
 
     async function loadCatalogRecent() {
         try {
