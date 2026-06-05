@@ -715,37 +715,74 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function handleCatalogSearch(query) {
-        els.catalogGrid.innerHTML = `
-            <div class="catalog-loading" style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">
-                <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; margin-bottom: 10px; display: block; color: var(--accent-red);"></i>
-                Searching database for "${query}"...
-            </div>
-        `;
+    async function handleCatalogSearch(query, page = 1) {
+        if (page === 1) {
+            els.catalogGrid.innerHTML = `
+                <div class="catalog-loading" style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; margin-bottom: 10px; display: block; color: var(--accent-red);"></i>
+                    Searching catalog for "${query}"...
+                </div>
+            `;
+        } else {
+            // Show inline loading at bottom
+            const loadingEl = document.createElement('div');
+            loadingEl.id = 'catalog-page-loading';
+            loadingEl.style.cssText = 'grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;';
+            loadingEl.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color:var(--accent-red);"></i> Loading page ${page}...`;
+            els.catalogGrid.appendChild(loadingEl);
+        }
 
         try {
-            const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`);
             const data = await res.json();
-            
+
+            // Remove any loading placeholder
+            const loadEl = document.getElementById('catalog-page-loading');
+            if (loadEl) loadEl.remove();
+            // Remove previous pagination bar
+            const oldBar = document.getElementById('catalog-pagination-bar');
+            if (oldBar) oldBar.remove();
+
             if (data.status === 'success' && data.results.length > 0) {
-                renderCatalogGrid(data.results);
-            } else {
+                renderCatalogGrid(data.results, page);
+                // Add pagination bar
+                const bar = document.createElement('div');
+                bar.id = 'catalog-pagination-bar';
+                bar.className = 'catalog-pagination-bar';
+                if (data.has_more) {
+                    bar.innerHTML = `
+                        <span class="pagination-info">Page ${page} &middot; ${data.results.length} results</span>
+                        <button class="pagination-next-btn" onclick="this.disabled=true;this.innerHTML='<i class=\'fa-solid fa-spinner fa-spin\'></i> Loading...';handleCatalogSearchGlobal('${query.replace(/'/g, "\\'")}',${ page + 1})">
+                            <i class="fa-solid fa-angles-right"></i> Next Page
+                        </button>
+                    `;
+                } else {
+                    bar.innerHTML = `<span class="pagination-info"><i class="fa-solid fa-check-circle"></i> All results shown (${page} page${page>1?'s':''})</span>`;
+                }
+                els.catalogGrid.appendChild(bar);
+            } else if (page === 1) {
                 els.catalogGrid.innerHTML = `
                     <div style="grid-column: 1 / -1; text-align: center; color: #ff6b6b; padding: 40px;">
                         <i class="fa-solid fa-face-frown" style="font-size: 36px; margin-bottom: 10px; display: block;"></i>
-                        No search matches found for "${query}" in our network catalog.
+                        No search matches found for "${query}".
                     </div>
                 `;
             }
         } catch (err) {
-            els.catalogGrid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; color: #ff6b6b; padding: 40px;">
-                    <i class="fa-solid fa-circle-exclamation" style="font-size: 36px; margin-bottom: 10px; display: block;"></i>
-                    Error connecting to backend database.
-                </div>
-            `;
+            const loadEl = document.getElementById('catalog-page-loading');
+            if (loadEl) loadEl.remove();
+            if (page === 1) {
+                els.catalogGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; color: #ff6b6b; padding: 40px;">
+                        <i class="fa-solid fa-circle-exclamation" style="font-size: 36px; margin-bottom: 10px; display: block;"></i>
+                        Error connecting to backend.
+                    </div>
+                `;
+            }
         }
     }
+    // Expose globally so inline onclick can call it
+    window.handleCatalogSearchGlobal = handleCatalogSearch;
 
     async function loadCatalogRecent() {
         try {
@@ -771,9 +808,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderCatalogGrid(movies) {
-        els.catalogGrid.innerHTML = '';
-        
+    function renderCatalogGrid(movies, page = 1) {
+        if (page === 1) els.catalogGrid.innerHTML = '';
+
         movies.forEach(movie => {
             const card = document.createElement('div');
             card.className = 'catalog-card';

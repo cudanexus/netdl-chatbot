@@ -7,91 +7,86 @@ BASE_URL = "https://vegamovies.market/"
 
 def search_movies(query, page=1):
     """
-    Queries both Vegamovies and Rogmovies search proxies and aggregates top results.
+    Queries both Vegamovies and Rogmovies search proxies and aggregates all results.
     Supports pagination via the page parameter.
+    Returns (results_list, has_more_bool).
     """
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
     }
     
-    results = []
-    seen_urls = set()
-    
-    # 1. Search Vegamovies
+    vega_results = []
+    rog_results  = []
+    seen_urls    = set()
+
+    # ── 1. VegaMovies ─────────────────────────────────────────────────────────
     vega_search_url = f"https://vegamovies.market/search.php?q={query}&page={page}"
     try:
-        resp = requests.get(vega_search_url, impersonate="chrome120", headers=headers, timeout=10)
+        resp = requests.get(vega_search_url, impersonate="chrome120", headers=headers, timeout=12)
         if resp.status_code == 200:
-            data = resp.json()
-            hits = data.get('hits', [])
+            hits = resp.json().get('hits', [])
             for hit in hits:
-                doc = hit.get('document', {})
-                title = doc.get('post_title', '')
+                doc       = hit.get('document', {})
+                title     = doc.get('post_title', '')
                 permalink = doc.get('permalink', '')
                 thumbnail = doc.get('post_thumbnail', '')
-                
                 if permalink.startswith('/'):
                     permalink = urljoin("https://vegamovies.market/", permalink)
                 if thumbnail.startswith('/'):
                     thumbnail = urljoin("https://vegamovies.market/", thumbnail)
-                    
-                if permalink not in seen_urls:
+                if permalink and permalink not in seen_urls:
                     seen_urls.add(permalink)
-                    results.append({
-                        'title': title,
-                        'url': permalink,
-                        'thumbnail': thumbnail,
-                        'site': 'vegamovies'
-                    })
+                    vega_results.append({'title': title, 'url': permalink,
+                                         'thumbnail': thumbnail, 'site': 'vegamovies'})
     except Exception as e:
-        print(f"Error searching Vegamovies: {e}")
-        
-    # 2. Search Rogmovies
-    rog_search_url = f"https://rogmovies.club/search.php?q={query}&page={page}"
-    try:
-        resp = requests.get(rog_search_url, impersonate="chrome120", headers=headers, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            hits = data.get('hits', [])
-            for hit in hits:
-                doc = hit.get('document', {})
-                title = doc.get('post_title', '')
-                permalink = doc.get('permalink', '')
-                thumbnail = doc.get('post_thumbnail', '')
-                
-                if permalink.startswith('/'):
-                    permalink = urljoin("https://rogmovies.club/", permalink)
-                if thumbnail.startswith('/'):
-                    thumbnail = urljoin("https://rogmovies.club/", thumbnail)
-                    
-                if permalink not in seen_urls:
-                    seen_urls.add(permalink)
-                    results.append({
-                        'title': title,
-                        'url': permalink,
-                        'thumbnail': thumbnail,
-                        'site': 'rogmovies'
-                    })
-    except Exception as e:
-        print(f"Error searching Rogmovies: {e}")
-        
-    # Interleave results from both sites to ensure representation of both
-    vega_results = [r for r in results if r['site'] == 'vegamovies']
-    rog_results = [r for r in results if r['site'] == 'rogmovies']
-    
+        print(f"[Search] VegaMovies error: {e}")
+
+    # ── 2. RogMovies — try multiple known domain variants ─────────────────────
+    rog_domains = ["https://rogmovies.club", "https://rogmovies.blog", "https://rogmovies.cyou"]
+    for rog_base in rog_domains:
+        rog_search_url = f"{rog_base}/search.php?q={query}&page={page}"
+        try:
+            resp = requests.get(rog_search_url, impersonate="chrome120", headers=headers, timeout=12)
+            if resp.status_code == 200:
+                hits = resp.json().get('hits', [])
+                if not hits:
+                    continue
+                for hit in hits:
+                    doc       = hit.get('document', {})
+                    title     = doc.get('post_title', '')
+                    permalink = doc.get('permalink', '')
+                    thumbnail = doc.get('post_thumbnail', '')
+                    if permalink.startswith('/'):
+                        permalink = urljoin(rog_base + '/', permalink)
+                    if thumbnail.startswith('/'):
+                        thumbnail = urljoin(rog_base + '/', thumbnail)
+                    if permalink and permalink not in seen_urls:
+                        seen_urls.add(permalink)
+                        rog_results.append({'title': title, 'url': permalink,
+                                             'thumbnail': thumbnail, 'site': 'rogmovies'})
+                print(f"[Search] RogMovies ({rog_base}): {len(rog_results)} hits")
+                break  # stop at first domain that returns results
+        except Exception as e:
+            print(f"[Search] RogMovies ({rog_base}) error: {e}")
+
+    # ── 3. Interleave both sources so both sites are represented ──────────────
     combined = []
     for v, r in zip(vega_results, rog_results):
         combined.append(v)
         combined.append(r)
-        
     min_len = min(len(vega_results), len(rog_results))
     combined.extend(vega_results[min_len:])
     combined.extend(rog_results[min_len:])
-    
-    # has_more is true if either site returned a full page of results
-    has_more = (len(vega_results) >= 10) or (len(rog_results) >= 10)
-    
-    return combined[:30], has_more
+
+    print(f"[Search] page={page} vega={len(vega_results)} rog={len(rog_results)} total={len(combined)}")
+
+    # has_more: true if either site returned ≥5 results (could still have more pages)
+    has_more = (len(vega_results) >= 5) or (len(rog_results) >= 5)
+
+    return combined, has_more
+
+
 
 
 def get_movie_quality(title):
