@@ -3,7 +3,7 @@ from curl_cffi import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
-BASE_URL = "https://vegamovies.market/"
+BASE_URL = "https://vegamovies.navy/"
 
 def search_movies(query, page=1):
     """
@@ -21,7 +21,7 @@ def search_movies(query, page=1):
     seen_urls    = set()
 
     # ── 1. VegaMovies ─────────────────────────────────────────────────────────
-    vega_search_url = f"https://vegamovies.market/search.php?q={query}&page={page}"
+    vega_search_url = f"https://vegamovies.navy/search.php?q={query}&page={page}"
     try:
         resp = requests.get(vega_search_url, impersonate="chrome120", headers=headers, timeout=12)
         if resp.status_code == 200:
@@ -32,9 +32,9 @@ def search_movies(query, page=1):
                 permalink = doc.get('permalink', '')
                 thumbnail = doc.get('post_thumbnail', '')
                 if permalink.startswith('/'):
-                    permalink = urljoin("https://vegamovies.market/", permalink)
+                    permalink = urljoin("https://vegamovies.navy/", permalink)
                 if thumbnail.startswith('/'):
-                    thumbnail = urljoin("https://vegamovies.market/", thumbnail)
+                    thumbnail = urljoin("https://vegamovies.navy/", thumbnail)
                 if permalink and permalink not in seen_urls:
                     seen_urls.add(permalink)
                     vega_results.append({'title': title, 'url': permalink,
@@ -308,14 +308,14 @@ def get_recent_uploads():
     
     # 1. Get from Vegamovies
     try:
-        response = requests.get("https://vegamovies.market/", impersonate="chrome120", headers=headers, timeout=12)
+        response = requests.get("https://vegamovies.navy/", impersonate="chrome120", headers=headers, timeout=12)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
             links = soup.find_all('a', href=lambda h: h and '/download-' in h)
             for l in links:
                 href = l['href']
                 if href.startswith('/'):
-                    href = urljoin("https://vegamovies.market/", href)
+                    href = urljoin("https://vegamovies.navy/", href)
                 if href in seen_urls:
                     continue
                 
@@ -327,7 +327,7 @@ def get_recent_uploads():
                     title = img.get('title') or img.get('alt') or ''
                     thumbnail = img.get('data-src') or img.get('data-lazy-src') or img.get('src') or ''
                     if thumbnail.startswith('/'):
-                        thumbnail = urljoin("https://vegamovies.market/", thumbnail)
+                        thumbnail = urljoin("https://vegamovies.navy/", thumbnail)
                     if title.lower().startswith('download '):
                         title = title[9:]
                     if 'data:image' in thumbnail:
