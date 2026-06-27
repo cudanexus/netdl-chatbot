@@ -128,8 +128,8 @@ def parse_post_details(post_url):
         post_title = soup.find('h1')
         title_str = post_title.text.strip() if post_title else "Movie/Series Details"
         
-        # Find all download links pointing to nexdrive.pro
-        nexdrive_links = soup.find_all('a', href=lambda h: h and 'nexdrive.pro' in h)
+        # Find all download links pointing to nexdrive (supports .pro, .fit, .in, etc.)
+        nexdrive_links = soup.find_all('a', href=lambda h: h and 'nexdrive.' in h)
         
         download_packages = []
         seen_urls = set()
