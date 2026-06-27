@@ -3,7 +3,9 @@ from curl_cffi import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 
-BASE_URL = "https://vegamovies.navy/"
+# VegaMovies operates across multiple domains simultaneously
+VEGA_DOMAINS = ["https://vegamovies.navy", "https://vegamovies.mq"]
+BASE_URL = VEGA_DOMAINS[0] + "/"
 
 def search_movies(query, page=1):
     """
@@ -108,19 +110,37 @@ def get_movie_quality(title):
 def parse_post_details(post_url):
     """
     Fetches the movie/series post page and extracts download packages/resolutions.
-    Maps each resolution to its nexdrive.pro URL.
+    Tries both vegamovies.navy and vegamovies.mq if one returns 404.
+    Maps each resolution to its nexdrive URL.
     """
     parsed_uri = urlparse(post_url)
     site_domain = f"{parsed_uri.scheme}://{parsed_uri.netloc}/"
-    
+
+    # Build a list of URLs to try — swap domain if page 404s
+    urls_to_try = [post_url]
+    for alt in VEGA_DOMAINS:
+        if parsed_uri.netloc not in alt:
+            urls_to_try.append(alt + parsed_uri.path)
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': site_domain
     }
-    
+
+    response = None
+    for try_url in urls_to_try:
+        try:
+            r = requests.get(try_url, impersonate="chrome120", headers=headers, timeout=15)
+            if r.status_code == 200:
+                response = r
+                print(f"[Details] Fetched {try_url}")
+                break
+            else:
+                print(f"[Details] {r.status_code} on {try_url}, trying next domain...")
+        except Exception as e:
+            print(f"[Details] Error on {try_url}: {e}")
+
     try:
-        response = requests.get(post_url, impersonate="chrome120", headers=headers, timeout=15)
-        if response.status_code != 200:
+        if response is None:
             return None
             
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -306,42 +326,50 @@ def get_recent_uploads():
     results = []
     seen_urls = set()
     
-    # 1. Get from Vegamovies
-    try:
-        response = requests.get("https://vegamovies.navy/", impersonate="chrome120", headers=headers, timeout=12)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            links = soup.find_all('a', href=lambda h: h and '/download-' in h)
-            for l in links:
-                href = l['href']
-                if href.startswith('/'):
-                    href = urljoin("https://vegamovies.navy/", href)
-                if href in seen_urls:
-                    continue
-                
-                img = l.find('img')
-                if not img and l.find_parent():
-                    img = l.find_parent().find('img')
-                
-                if img:
-                    title = img.get('title') or img.get('alt') or ''
-                    thumbnail = img.get('data-src') or img.get('data-lazy-src') or img.get('src') or ''
-                    if thumbnail.startswith('/'):
-                        thumbnail = urljoin("https://vegamovies.navy/", thumbnail)
-                    if title.lower().startswith('download '):
-                        title = title[9:]
-                    if 'data:image' in thumbnail:
-                        thumbnail = ''
-                    if title and href not in seen_urls:
-                        seen_urls.add(href)
-                        results.append({
-                            'title': title,
-                            'url': href,
-                            'thumbnail': thumbnail,
-                            'site': 'vegamovies'
-                        })
-    except Exception as e:
-        print(f"Error fetching recent Vegamovies: {e}")
+    # 1. Get from Vegamovies — try both known domains for recent posts
+    for vega_base in VEGA_DOMAINS:
+        try:
+            response = requests.get(vega_base + "/", impersonate="chrome120", headers=headers, timeout=12)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                links = soup.find_all('a', href=lambda h: h and '/download-' in h)
+                added = 0
+                for l in links:
+                    href = l['href']
+                    # Normalise to the domain we fetched from
+                    if href.startswith('/'):
+                        href = vega_base + href
+                    # Accept links from any vegamovies.* domain
+                    if href in seen_urls or 'vegamovies' not in href:
+                        continue
+                    
+                    img = l.find('img')
+                    if not img and l.find_parent():
+                        img = l.find_parent().find('img')
+                    
+                    if img:
+                        title = img.get('title') or img.get('alt') or ''
+                        thumbnail = img.get('data-src') or img.get('data-lazy-src') or img.get('src') or ''
+                        if thumbnail.startswith('/'):
+                            thumbnail = vega_base + thumbnail
+                        if title.lower().startswith('download '):
+                            title = title[9:]
+                        if 'data:image' in thumbnail:
+                            thumbnail = ''
+                        if title and href not in seen_urls:
+                            seen_urls.add(href)
+                            results.append({
+                                'title': title,
+                                'url': href,
+                                'thumbnail': thumbnail,
+                                'site': 'vegamovies'
+                            })
+                            added += 1
+                print(f"[Recent] VegaMovies ({vega_base}): {added} posts")
+                if added > 0:
+                    break  # got results, don't try next domain
+        except Exception as e:
+            print(f"[Recent] VegaMovies ({vega_base}) error: {e}")
         
     # 2. Get from Rogmovies
     try:
